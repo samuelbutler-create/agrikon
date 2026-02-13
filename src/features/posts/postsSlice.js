@@ -257,6 +257,14 @@ export const createPost = createAsyncThunk(
         payload.append("content", content);
         payload.append("is_anonymous", isAnonymous ? "true" : "false");
         payload.append("image", imageFile);
+        
+        // Log FormData contents for debugging
+        console.log("FormData contents:");
+        console.log("- title:", title);
+        console.log("- content:", content);
+        console.log("- is_anonymous:", isAnonymous ? "true" : "false");
+        console.log("- image file:", imageFile.name, "type:", imageFile.type, "size:", imageFile.size);
+        
         response = await api.post("/posts", payload);
       } else {
         response = await api.post("/posts", {
@@ -271,18 +279,35 @@ export const createPost = createAsyncThunk(
 
     } catch (err) {
       // Log detailed error information for debugging
-      console.error("Create post error details:", {
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        data: err.response?.data,
-        message: err.message
-      });
+      console.error("Create post error details:");
+      console.error("Status:", err.response?.status);
+      console.error("Status Text:", err.response?.statusText);
+      console.error("Error Data:", err.response?.data);
+      console.error("Error Message:", err.message);
+      console.error("Request payload - title:", title, "content length:", content?.length, "has image:", !!imageFile);
+
+      // If image upload failed (500 error), try again without the image
+      if (err.response?.status === 500 && imageFile) {
+        console.warn("Image upload failed, retrying without image...");
+        try {
+          const retryResponse = await api.post("/posts", {
+            title,
+            content,
+            is_anonymous: Boolean(isAnonymous)
+          });
+          const newPost = retryResponse.data?.post || retryResponse.data;
+          return standardizePost(newPost, user);
+        } catch (retryErr) {
+          console.error("Retry without image also failed:", retryErr.response?.data);
+        }
+      }
 
       // Create a local post if network fails
       if (err.response?.status === 405 || err.message === "Network Error") {
         const tempPost = {
           id: `local-${Date.now()}`,
           clientId: `local-${Date.now()}`,
+          title,
           content,
           imageUrl: imageFile ? URL.createObjectURL(imageFile) : null,
           isAnonymous,
@@ -301,7 +326,28 @@ export const createPost = createAsyncThunk(
         return standardizePost(tempPost, user);
       }
 
-      const errorMessage = err.response?.data?.message || err.response?.data?.error || "Failed to create post";
+      // Extract error message from different possible response structures
+      let errorMessage = "Failed to create post";
+      
+      if (err.response?.data) {
+        if (typeof err.response.data === 'string') {
+          errorMessage = err.response.data;
+        } else if (err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } else if (err.response.data.error) {
+          errorMessage = err.response.data.error;
+        } else if (err.response.data.errors) {
+          // Handle validation errors array
+          errorMessage = Array.isArray(err.response.data.errors) 
+            ? err.response.data.errors.join(", ")
+            : JSON.stringify(err.response.data.errors);
+        }
+      }
+      
+      if (err.response?.statusText) {
+        errorMessage = `${err.response.statusText}: ${errorMessage}`;
+      }
+      
       return rejectWithValue(errorMessage);
     }
   }
