@@ -69,8 +69,8 @@ export default function ChatView({ userId }) {
     return () => {
       isMounted = false;
       clearInterval(interval);
-      if (typingTimer) clearTimeout(typingTimer);
-    };Ref.current) clearTimeout(typingTimerRef.current
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
   }, [userId, currentUserId, currentUserName]);
 
   const handleSend = async () => {

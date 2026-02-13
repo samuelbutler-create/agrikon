@@ -2,9 +2,16 @@ const API_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || "http://
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
+  const isValidToken = (value) => {
+    if (!value || typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return false;
+    const parts = trimmed.split('.');
+    return parts.length === 3 && parts.every((part) => part.length > 0);
+  };
   return {
     "Content-Type": "application/json",
-    ...(token && { "Authorization": `Bearer ${token}` }),
+    ...(isValidToken(token) && { "Authorization": `Bearer ${token}` }),
   };
 };
 

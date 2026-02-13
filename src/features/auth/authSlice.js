@@ -78,10 +78,13 @@ export const register = createAsyncThunk(
       };
 
       const apiData = {
-        ...userData,
-        role: roleMapping[userData.userType] || 'farmer'
+        email: userData.email,
+        password: userData.password,
+        first_name: userData.firstName,
+        last_name: userData.lastName,
+        role: roleMapping[userData.userType] || 'farmer',
+        specialties: userData.specialties
       };
-      delete apiData.userType;
 
       const response = await api.post('/auth/register', apiData);
       const { token, user } = response.data;
